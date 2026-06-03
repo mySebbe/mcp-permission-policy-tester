@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-permission-policy-tester"
+version = "0.1.0"
+description = "Scan MCP tool descriptions and schemas for risky permission policy signals."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "OSS Contributors" }]
+keywords = ["mcp", "policy", "security", "cli"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "License :: OSI Approved :: MIT License",
+]
+
+[project.scripts]
+mcp-permission-policy-tester = "mcp_permission_policy_tester.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.urls]
+Homepage = "https://github.com/mySebbe/mcp-permission-policy-tester"
+Repository = "https://github.com/mySebbe/mcp-permission-policy-tester"
+Issues = "https://github.com/mySebbe/mcp-permission-policy-tester/issues"
+Changelog = "https://github.com/mySebbe/mcp-permission-policy-tester/blob/main/CHANGELOG.md"
+
+[tool.setuptools.package-data]
+"mcp_permission_policy_tester" = ["py.typed"]

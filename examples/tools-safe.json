@@ -1,0 +1,9 @@
+{
+  "tools": [
+    {
+      "name": "lookup_docs",
+      "description": "Look up public documentation by query.",
+      "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}}
+    }
+  ]
+}
