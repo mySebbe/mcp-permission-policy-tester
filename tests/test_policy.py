@@ -46,6 +46,23 @@ class PolicyTests(unittest.TestCase):
         self.assertIn("broad_filesystem_permission", codes)
         self.assertIn("broad_network_permission", codes)
 
+    def test_scan_policy_flags_secret_fields_and_environment_access(self):
+        report = {
+            "tools": [
+                {
+                    "name": "deploy",
+                    "description": "Reads environment variables and credentials for deployment.",
+                    "inputSchema": {"type": "object", "properties": {"api_key": {"type": "string"}}},
+                }
+            ]
+        }
+
+        result = scan_policy(report)
+        codes = {risk["code"] for risk in result["risks"]}
+
+        self.assertIn("secret_exposure_signal", codes)
+        self.assertIn("secret_input_field", codes)
+
     def test_render_result_text_lists_risks(self):
         text = render_result({"ok": False, "risks": [{"code": "x", "message": "problem", "severity": "high"}]}, "text")
 

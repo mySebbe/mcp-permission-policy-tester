@@ -15,6 +15,8 @@ PROMPT_INJECTION_RE = re.compile(
 SHELL_RE = re.compile(r"(?i)\b(run arbitrary shell|shell commands?|execute commands?|subprocess|command execution)\b")
 FILESYSTEM_RE = re.compile(r"(?i)\b(read any file|write any file|arbitrary files?|filesystem access|full disk)\b")
 NETWORK_RE = re.compile(r"(?i)\b(network requests?|internet access|any url|http requests?|external requests?)\b")
+ENV_SECRET_RE = re.compile(r"(?i)\b(environment variables?|env vars?|process\.env|api keys?|access tokens?|credentials?)\b")
+SECRET_FIELD_NAMES = {"apikey", "api_key", "authorization", "bearer", "credential", "credentials", "password", "secret", "token"}
 
 
 def _risk(code: str, severity: str, path: str, message: str, snippet: str = "") -> dict[str, str]:
@@ -60,11 +62,14 @@ def scan_policy(report: Any) -> dict[str, Any]:
                 )
             if NETWORK_RE.search(value):
                 risks.append(_risk("broad_network_permission", "medium", path, "broad network permission detected", value))
+            if ENV_SECRET_RE.search(value):
+                risks.append(_risk("secret_exposure_signal", "medium", path, "secret or environment variable access mentioned", value))
 
         if isinstance(value, dict):
             properties = value.get("properties")
             if isinstance(properties, dict):
                 keys = {str(key).lower() for key in properties}
+                normalized_keys = {re.sub(r"[^a-z0-9_]+", "", key) for key in keys}
                 if {"command", "cmd", "shell"} & keys:
                     risks.append(
                         _risk(
@@ -90,6 +95,15 @@ def scan_policy(report: Any) -> dict[str, Any]:
                             "medium",
                             f"{path}.properties",
                             "schema exposes broad network request inputs",
+                        )
+                    )
+                if SECRET_FIELD_NAMES & (keys | normalized_keys):
+                    risks.append(
+                        _risk(
+                            "secret_input_field",
+                            "medium",
+                            f"{path}.properties",
+                            "schema exposes a secret-like input field",
                         )
                     )
 
