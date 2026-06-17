@@ -2,6 +2,11 @@
 
 `mcp-permission-policy-tester` scans MCP tool descriptions and schema JSON for policy risk signals.
 
+## 0.1.1 Highlights
+
+- Policy scans now flag secret-like schema inputs such as tokens, passwords, and API keys.
+- Descriptions that mention environment variables or credentials are reported as risk signals.
+
 ## Checks
 
 - hidden Unicode control characters
