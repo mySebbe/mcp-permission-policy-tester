@@ -17,6 +17,7 @@ FILESYSTEM_RE = re.compile(r"(?i)\b(read any file|write any file|arbitrary files
 NETWORK_RE = re.compile(r"(?i)\b(network requests?|internet access|any url|http requests?|external requests?)\b")
 ENV_SECRET_RE = re.compile(r"(?i)\b(environment variables?|env vars?|process\.env|api keys?|access tokens?|credentials?)\b")
 SECRET_FIELD_NAMES = {"apikey", "api_key", "authorization", "bearer", "credential", "credentials", "password", "secret", "token"}
+SEVERITY_ORDER = {"low": 1, "medium": 2, "high": 3}
 
 
 def _risk(code: str, severity: str, path: str, message: str, snippet: str = "") -> dict[str, str]:
@@ -108,6 +109,22 @@ def scan_policy(report: Any) -> dict[str, Any]:
                     )
 
     return {"ok": not risks, "risks": risks, "summary": {"risk_count": len(risks)}}
+
+
+def apply_severity_threshold(result: dict[str, Any], fail_on: str = "medium") -> dict[str, Any]:
+    """Mark the result failed only when risks meet or exceed the requested severity."""
+    threshold = SEVERITY_ORDER[fail_on]
+    risks = list(result.get("risks", []))
+    blocking = [
+        risk for risk in risks if SEVERITY_ORDER.get(str(risk.get("severity", "")).lower(), 0) >= threshold
+    ]
+    summary = dict(result.get("summary") or {})
+    summary["fail_on"] = fail_on
+    summary["blocking_risk_count"] = len(blocking)
+    updated = dict(result)
+    updated["summary"] = summary
+    updated["ok"] = not blocking
+    return updated
 
 
 def render_result(result: dict[str, Any], output_format: str = "text") -> str:

@@ -7,7 +7,7 @@ import json
 import sys
 
 from ._version import __version__
-from .policy import render_result, scan_policy
+from .policy import apply_severity_threshold, render_result, scan_policy
 
 
 def _read(path: str | None) -> str:
@@ -22,6 +22,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("path", nargs="?", help="JSON file to scan. Reads stdin when omitted or '-'.")
     parser.add_argument("--format", choices=("text", "json"), default="text")
+    parser.add_argument(
+        "--fail-on",
+        choices=("low", "medium", "high"),
+        default="medium",
+        help="Return exit code 1 only when a risk has this severity or higher.",
+    )
     return parser
 
 
@@ -37,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"mcp-permission-policy-tester: invalid JSON: {exc}", file=sys.stderr)
         return 2
 
-    result = scan_policy(report)
+    result = apply_severity_threshold(scan_policy(report), args.fail_on)
     sys.stdout.write(render_result(result, args.format))
     return 0 if result["ok"] else 1
 
