@@ -2,10 +2,10 @@
 
 `mcp-permission-policy-tester` scans MCP tool descriptions and schema JSON for policy risk signals.
 
-## 0.1.1 Highlights
+## 0.1.2 Highlights
 
-- Policy scans now flag secret-like schema inputs such as tokens, passwords, and API keys.
-- Descriptions that mention environment variables or credentials are reported as risk signals.
+- CI gates can now choose a blocking severity with `--fail-on low|medium|high`.
+- Reports still list all risks while the exit code only fails at the configured threshold.
 
 ## Checks
 
@@ -26,13 +26,14 @@ python -m pip install .
 ```bash
 mcp-permission-policy-tester tools.json
 cat tools.json | mcp-permission-policy-tester --format json
+cat tools.json | mcp-permission-policy-tester --format json --fail-on high
 python -m mcp_permission_policy_tester --format text < tools.json
 ```
 
 Exit codes:
 
 - `0`: no risks detected
-- `1`: one or more risks detected
+- `1`: one or more risks meet or exceed the configured `--fail-on` severity
 - `2`: invalid input, unreadable file, or invalid JSON
 
 ## Development

@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from mcp_permission_policy_tester.policy import render_result, scan_policy
+from mcp_permission_policy_tester.policy import apply_severity_threshold, render_result, scan_policy
 
 
 class PolicyTests(unittest.TestCase):
@@ -69,6 +69,14 @@ class PolicyTests(unittest.TestCase):
         self.assertIn("FAIL", text)
         self.assertIn("problem", text)
 
+    def test_apply_severity_threshold_allows_medium_when_failing_on_high(self):
+        result = scan_policy({"tools": [{"name": "net", "description": "make network requests"}]})
+
+        gated = apply_severity_threshold(result, "high")
+
+        self.assertTrue(gated["ok"])
+        self.assertEqual(0, gated["summary"]["blocking_risk_count"])
+
     def test_cli_reads_stdin_and_returns_nonzero_on_risks(self):
         env = os.environ.copy()
         env["PYTHONPATH"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -85,6 +93,23 @@ class PolicyTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 1)
         self.assertIn("broad_shell_permission", completed.stdout)
+
+    def test_cli_can_fail_only_on_high_severity(self):
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+        payload = json.dumps({"tools": [{"name": "net", "description": "make network requests"}]})
+
+        completed = subprocess.run(
+            [sys.executable, "-m", "mcp_permission_policy_tester", "--format", "json", "--fail-on", "high"],
+            input=payload,
+            text=True,
+            capture_output=True,
+            env=env,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(json.loads(completed.stdout)["summary"]["fail_on"], "high")
 
 
 if __name__ == "__main__":
