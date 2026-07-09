@@ -2,11 +2,18 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from mcp_permission_policy_tester.policy import apply_severity_threshold, render_result, scan_policy
+from mcp_permission_policy_tester.policy import (
+    MAX_JSON_DEPTH,
+    MAX_TOOL_COUNT,
+    apply_severity_threshold,
+    render_result,
+    scan_policy,
+)
 
 
 class PolicyTests(unittest.TestCase):
@@ -110,6 +117,80 @@ class PolicyTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 0)
         self.assertEqual(json.loads(completed.stdout)["summary"]["fail_on"], "high")
+
+    def test_cli_rejects_oversized_stdin_with_exit_code_two(self):
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+        payload = "{}"
+
+        completed = subprocess.run(
+            [sys.executable, "-m", "mcp_permission_policy_tester", "--max-input-bytes", "1"],
+            input=payload,
+            text=True,
+            capture_output=True,
+            env=env,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("input exceeds --max-input-bytes limit of 1 bytes", completed.stderr)
+
+    def test_cli_rejects_oversized_file_with_exit_code_two(self):
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as handle:
+            handle.write("{}")
+            path = handle.name
+        try:
+            completed = subprocess.run(
+                [sys.executable, "-m", "mcp_permission_policy_tester", "--max-input-bytes", "1", path],
+                text=True,
+                capture_output=True,
+                env=env,
+                check=False,
+            )
+        finally:
+            os.unlink(path)
+
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("input exceeds --max-input-bytes limit of 1 bytes", completed.stderr)
+
+    def test_cli_rejects_tool_lists_over_the_structural_limit(self):
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+        payload = json.dumps({"tools": [{} for _ in range(MAX_TOOL_COUNT + 1)]})
+
+        completed = subprocess.run(
+            [sys.executable, "-m", "mcp_permission_policy_tester"],
+            input=payload,
+            text=True,
+            capture_output=True,
+            env=env,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn(f"tool list exceeds maximum of {MAX_TOOL_COUNT} items", completed.stderr)
+
+    def test_cli_rejects_json_nested_beyond_the_structural_limit(self):
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+        report = {}
+        for _ in range(MAX_JSON_DEPTH):
+            report = {"nested": report}
+        payload = json.dumps(report)
+
+        completed = subprocess.run(
+            [sys.executable, "-m", "mcp_permission_policy_tester"],
+            input=payload,
+            text=True,
+            capture_output=True,
+            env=env,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn(f"JSON nesting depth exceeds maximum of {MAX_JSON_DEPTH}", completed.stderr)
 
 
 if __name__ == "__main__":
