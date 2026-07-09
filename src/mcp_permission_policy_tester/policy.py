@@ -18,6 +18,12 @@ NETWORK_RE = re.compile(r"(?i)\b(network requests?|internet access|any url|http 
 ENV_SECRET_RE = re.compile(r"(?i)\b(environment variables?|env vars?|process\.env|api keys?|access tokens?|credentials?)\b")
 SECRET_FIELD_NAMES = {"apikey", "api_key", "authorization", "bearer", "credential", "credentials", "password", "secret", "token"}
 SEVERITY_ORDER = {"low": 1, "medium": 2, "high": 3}
+MAX_TOOL_COUNT = 10_000
+MAX_JSON_DEPTH = 100
+
+
+class ReportLimitError(ValueError):
+    """Raised when a parsed report exceeds a structural safety limit."""
 
 
 def _risk(code: str, severity: str, path: str, message: str, snippet: str = "") -> dict[str, str]:
@@ -36,6 +42,38 @@ def _walk(value: Any, path: str = "$") -> Iterable[tuple[str, Any]]:
     elif isinstance(value, list):
         for index, child in enumerate(value):
             yield from _walk(child, f"{path}[{index}]")
+
+
+def _max_json_depth(value: Any) -> int:
+    """Return the maximum container depth without recursive Python calls."""
+    maximum = 0
+    pending = [(value, 1)]
+    while pending:
+        current, depth = pending.pop()
+        maximum = max(maximum, depth)
+        if isinstance(current, dict):
+            pending.extend((child, depth + 1) for child in current.values())
+        elif isinstance(current, list):
+            pending.extend((child, depth + 1) for child in current)
+    return maximum
+
+
+def validate_report_limits(
+    report: Any,
+    *,
+    max_tool_count: int = MAX_TOOL_COUNT,
+    max_json_depth: int = MAX_JSON_DEPTH,
+) -> None:
+    """Reject parsed reports that could cause disproportionate scan work."""
+    tool_list: Any = report
+    if isinstance(report, dict):
+        tool_list = report.get("tools")
+    if isinstance(tool_list, list) and len(tool_list) > max_tool_count:
+        raise ReportLimitError(f"tool list exceeds maximum of {max_tool_count} items")
+
+    depth = _max_json_depth(report)
+    if depth > max_json_depth:
+        raise ReportLimitError(f"JSON nesting depth exceeds maximum of {max_json_depth}")
 
 
 def scan_policy(report: Any) -> dict[str, Any]:

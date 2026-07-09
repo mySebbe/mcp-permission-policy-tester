@@ -6,7 +6,8 @@ The format is based on Keep a Changelog, and this project uses semantic versioni
 
 ## [Unreleased]
 
-- No unreleased changes yet.
+- Added bounded file and stdin reads with a 1 MiB default `--max-input-bytes` limit.
+- Added exit code 2 errors for oversized input and conservative limits of 10,000 tools and JSON depth 100.
 
 ## [0.1.2] - 2026-07-06
 
